@@ -582,10 +582,6 @@ class guipyter(spectra):
 
     def make_interactive_plot(self):
 
-        self.change_pars_button = Button(
-            description="Change Input Parameters",
-            layout = Layout(width = '300px', margin = '0 0 5ps 0')
-            ) 
         self.change_pars_to_fit_button = Button(
             description="Change Parameters to Fit Result",
             layout = Layout(width = '300px', margin = '0 0 5ps 0')
@@ -623,12 +619,6 @@ class guipyter(spectra):
     
         out = Output()
         display(out)
-        @self.change_pars_button.on_click
-        def plot_on_click(b):
-            # self.spectra_object.params = dc(self.spectra_object.params_full[self.data_init_widget.value])
-            for pars in self.paramwidgets.keys():
-                # print(pars)
-                self.paramwidgets[pars].value = dc(self.spectra_object.params_full[self.data_init_widget.value][pars].value)
 
         @self.change_pars_to_fit_button.on_click
         def plot_on_click(b):
@@ -647,8 +637,7 @@ class guipyter(spectra):
         self.intplot = interactive(self.interactive_plot,**plotkwargs)
         
         vb = VBox(self.intplot.children[0:-1])
-        vb2 = VBox([HBox([self.data_init_widget,VBox([self.change_pars_button,self.change_pars_to_fit_button])]),\
-            self.intplot.children[-1]]) 
+        vb2 = VBox([HBox([self.data_init_widget,self.change_pars_to_fit_button]),self.intplot.children[-1]])
         hb = HBox([vb,vb2])
             
         display(hb)
