@@ -550,12 +550,15 @@ class guipyter(spectra):
             if ('fraction' in par) or ('skew' in par):
                 self.ctrl_lims[par] = (0,1)
         
-        self.make_params_widget()
+        self.parameter_panel(parameters = self.spectra_object.params)
         self.make_interactive_plot()
         self.fitting_panel = fitting_panel(self.spectra_object)
 
 
-    def make_params_widget(self):
+    def parameter_panel(self,parameters = None):
+        if parameters == None:
+            print('No parameters specified')
+            return
         box_layout = Layout(display='flex',
                                     flex_flow='column',
                                     align_items='stretch',
@@ -566,7 +569,7 @@ class guipyter(spectra):
 
                 
             self.paramwidgets = {p_name:ParameterWidgetGroup(p,slider_ctrl = self.ctrl_pars[p_name],sliderlims = self.ctrl_lims[p_name])\
-                 for p_name, p in self.spectra_object.params.items() if p_name in self.rel_pars}
+                 for p_name, p in parameters.items() if p_name in self.rel_pars}
 
             # for pw in self.paramwidgets.values():
             #     pw.value_text.observe(lambda e: self.update_plot(), names='value')
@@ -630,12 +633,13 @@ class guipyter(spectra):
         @self.change_pars_to_fit_button.on_click
         def plot_on_click(b):
             with out:
-                print('yeet')
-                # self.spectra_object.params = dc(self.spectra_object.params_full[self.data_init_widget.value])
-                # for pars in self.paramwidgets.keys():
-                    # print(pars,self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
-                    # self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
-                self.spectra_object.params = dc(self.spectra_object.fit_results[self.data_init_widget.value].params)
+
+                for pars in self.paramwidgets.keys():
+
+                    if self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr == None:
+                        # self.paramwidgets[pars].expr_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr)
+                        self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
+
 
         # Create the interactive plot, then build the slider/graph parameter controls
         plotkwargs = {**{pw.name:pw.ctrl_slider for pw in self.paramwidgets.values() if hasattr(pw,'ctrl_slider')},\
