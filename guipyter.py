@@ -36,8 +36,12 @@ class ParameterWidgetGroup:
     """Modified from existing lmfit.ui.ipy_fitter"""
     def __init__(self, par, slider_ctrl=True,sliderlims = None):
         self.par = par
+        self.slider_ctrl = slider_ctrl
+        self.sliderlims = sliderlims
+
         widgetlayout = {'flex': '1 1 auto', 'width': 'auto', 'margin': '0px 0px 0px 0px'}
         width = {'description_width': '10px'}
+
 
         # Define widgets.
         self.value_text = FloatText(
@@ -72,12 +76,12 @@ class ParameterWidgetGroup:
             indent=False,
             layout = Layout(width = '200px', margin = '0 5px 0 0')
             )
-        if slider_ctrl is True:
+        if self.slider_ctrl is True:
             
             self.ctrl_slider = FloatSlider (
                         value=self.par.value,
-                        min = sliderlims[0],
-                        max = sliderlims[1], ### Need to figure out a way to set this
+                        min = self.sliderlims[0],
+                        max = self.sliderlims[1], ### Need to figure out a way to set this
                         step  = 0.01,
                         description = self.par.name,
                         style = {'description_width': 'initial','handle_color' : element_color['_'.join(self.par.name.split('_')[:-1]+[''])]},
@@ -160,13 +164,17 @@ class ParameterWidgetGroup:
     def update_widget_group(self,par):
         # print(par)
         self.par = par
-        self.value_text.value = np.round(self.par.value,2)
-        if par.expr != None:
-            self.expr_text.value = self.par.expr
+        self.vary_checkbox.value =  self.par.vary
         self.min_text.value =  self.par.min
         self.max_text.value =  self.par.max
-        self.vary_checkbox.value =  self.par.vary
-        print(self.expr_text.value)
+        # self.define_widgets()
+        if par.expr != None:
+            self.expr_text.value = self.par.expr
+        elif self.par.expr == None:
+            self.value_text.value = self.par.value
+
+
+        # print(self.expr_text.value)
         
 
     # Make it easy to set the widget attributes directly.
@@ -666,13 +674,13 @@ class guipyter(spectra):
         @self.change_pars_to_fit_button.on_click
         def plot_on_click(b):
             with out:
-                # self.spectra_object.params = self.spectra_object.fit_results[self.data_init_widget.value].params.copy()
+                self.spectra_object.params = self.spectra_object.fit_results[self.data_init_widget.value].params.copy()
                 # self.update_parameter_panel(parameters = self.spectra_object.params)
                 for pars in self.paramwidgets.keys():
-                #     # print(self.spectra_object.fit_results[self.data_init_widget.value].params[pars])
-                    # self.paramwidgets[pars].update_widget_group(self.spectra_object.params[pars])
-                    if self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr == None:
-                        self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
+                # #     # print(self.spectra_object.fit_results[self.data_init_widget.value].params[pars])
+                    self.paramwidgets[pars].update_widget_group(self.spectra_object.params[pars])
+                #     if self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr == None:
+                #         self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
 
         @self.reset_slider_lims_button.on_click
         def plot_on_click(b):
