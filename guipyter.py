@@ -73,14 +73,14 @@ class ParameterWidgetGroup:
             layout = Layout(width = '200px', margin = '0 5px 0 0')
             )
         if slider_ctrl is True:
-
+            
             self.ctrl_slider = FloatSlider (
                         value=self.par.value,
                         min = sliderlims[0],
                         max = sliderlims[1], ### Need to figure out a way to set this
                         step  = 0.01,
                         description = self.par.name,
-                        style = {'description_width': 'initial','handle_color' : 'blue'},
+                        style = {'description_width': 'initial','handle_color' : element_color['_'.join(self.par.name.split('_')[:-1]+[''])]},
                         layout = Layout(width = '350px', margin = '0 0 5ps 0')
                         )
 
@@ -104,6 +104,8 @@ class ParameterWidgetGroup:
 
         # Configure widgets to sync with par attributes.
         self.value_text.observe(self._on_value_change, names='value')
+        self.expr_text.observe(self._on_expr_change, names='value')
+
         self.min_text.observe(self._on_min_value_change, names='value')
         self.max_text.observe(self._on_max_value_change, names='value')
         # self.min_checkbox.observe(self._on_min_checkbox_change, names='value')
@@ -112,6 +114,9 @@ class ParameterWidgetGroup:
 
     def _on_value_change(self, change):
         self.par.set(value=change['new'])
+
+    def _on_expr_change(self, change):
+        self.par.set(expr=change['new'])
 
     def _on_min_checkbox_change(self, change):
         self.min_text.disabled = not change['new']
@@ -152,38 +157,58 @@ class ParameterWidgetGroup:
                             ])
         return box
 
-    # # Make it easy to set the widget attributes directly.
-    # @property
-    # def value(self):
-    #     return self.value_text.value
+    def update_widget_group(self,par):
+        # print(par)
+        self.par = par
+        self.value_text.value = np.round(self.par.value,2)
+        if par.expr != None:
+            self.expr_text.value = self.par.expr
+        self.min_text.value =  self.par.min
+        self.max_text.value =  self.par.max
+        self.vary_checkbox.value =  self.par.vary
+        print(self.expr_text.value)
+        
 
-    # @value.setter
-    # def value(self, value):
-    #     self.value_text.value = value
+    # Make it easy to set the widget attributes directly.
+    @property
+    def value(self):
+        return self.value_text.value
 
-    # @property
-    # def vary(self):
-    #     return self.vary_checkbox.value
+    @value.setter
+    def value(self, value):
+        self.value_text.value = value
 
-    # @vary.setter
-    # def vary(self, value):
-    #     self.vary_checkbox.value = value
+    @property
+    def expr(self):
+        return self.expr_text.value
 
-    # @property
-    # def min(self):
-    #     return self.min_text.value
+    @value.setter
+    def expr(self, expr):
+        self.expr_text.value = expr
 
-    # @min.setter
-    # def min(self, value):
-    #     self.min_text.value = value
+    @property
+    def vary(self):
+        return self.vary_checkbox.value
 
-    # @property
-    # def max(self):
-    #     return self.max_text.value
+    @vary.setter
+    def vary(self, value):
+        self.vary_checkbox.value = value
 
-    # @max.setter
-    # def max(self, value):
-    #     self.max_text.value = value
+    @property
+    def min(self):
+        return self.min_text.value
+
+    @min.setter
+    def min(self, value):
+        self.min_text.value = value
+
+    @property
+    def max(self):
+        return self.max_text.value
+
+    @max.setter
+    def max(self, value):
+        self.max_text.value = value
 
     @property
     def name(self):
@@ -413,7 +438,7 @@ class fitting_panel:
                 # if hasattr(self,"fig"):
                 clear_output(True)
 
-                self.plot()
+                self.plot_spectra()
                 show_inline_matplotlib_plots()    
 
                 
@@ -432,25 +457,25 @@ class fitting_panel:
     def fit_spectra(self):
         ### Fitting Conditionals
         if self.fit_method_widget.value ==None:
-            print('Enter a fitting Method')
+            print('Enter a fitting Method',flush =True)
             return
         
         if (self.select_parameters_widget.value != None) & (not hasattr(self,'fit_results')):
-            print('No Previous Fits!')
+            print('No Previous Fits!',flush =True)
             return
         
         
         if 'All' in self.spectra_to_fit_widget.value:
-            print('%%%% Fitting all spectra... %%%%')            
+            print('%%%% Fitting all spectra... %%%%',flush =True)          
             fit_points = None
             
         elif self.spectra_to_fit_widget.value[0] == None:
 #             self.fit_iter_idx = range(0)
-            print('No Specta are selected!')
+            print('No Specta are selected!',flush =True)
             return
         else:
             fit_points = list(self.spectra_to_fit_widget.value)
-            print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%') 
+            print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
         self.spectra_object.fit(specific_points = fit_points,plotflag = False, track = False)
         self.plot_spectra()
@@ -470,7 +495,7 @@ class fitting_panel:
                 return
 
             elif 'All' in self.spectra_to_fit_widget.value:
-                plot_points = [j for j,x in enumerate(self.fit_results) if x]
+                plot_points = [j for j,x in enumerate(self.spectra_object.fit_results) if x]
 
             else:
                 plot_points = dc(list(self.spectra_to_fit_widget.value))    
@@ -502,11 +527,11 @@ class guipyter(spectra):
             self.spectra_object.params = pickle.load(open(load_dict[load_model]['params_path'],"rb"))[0]
             self.spectra_object.pairlist = load_dict[load_model]['pairlist']
             self.spectra_object.element_ctrl = load_dict[load_model]['element_ctrl']
-        else:
-            self.spectra_object.mod = spectra_object.mod
-            self.spectra_object.element_ctrl = spectra_object.element_ctrl
-            self.spectra_object.pairlist = spectra_object.pairlist
-            self.spectra_object.params = spectra_object.params
+        # else:
+            # self.spectra_object.mod = spectra_object.mod
+            # self.spectra_object.element_ctrl = spectra_object.element_ctrl
+            # self.spectra_object.pairlist = spectra_object.pairlist
+            # self.spectra_object.params = spectra_object.params
 
         self.E= spectra_object.E
         self.I= spectra_object.I
@@ -531,11 +556,11 @@ class guipyter(spectra):
         self.rel_pars = [par for component_pars in [model_component._param_names for model_component in self.spectra_object.mod.components] \
             for par in component_pars]
     
-        ctrl_prefixes = [[prefix for pairs in self.spectra_object.pairlist \
+        self.ctrl_prefixes = [[prefix for pairs in self.spectra_object.pairlist \
             for prefix in pairs][i] for i in self.spectra_object.element_ctrl]
-        print(ctrl_prefixes)
+        print(self.ctrl_prefixes)
         
-        self.ctrl_pars = {par: any(x in par for x in ctrl_prefixes) for par in self.rel_pars}
+        self.ctrl_pars = {par: any(x in par for x in self.ctrl_prefixes) for par in self.rel_pars}
         self.ctrl_lims = {}
 
         for par in self.rel_pars:
@@ -550,12 +575,12 @@ class guipyter(spectra):
             if ('fraction' in par) or ('skew' in par):
                 self.ctrl_lims[par] = (0,1)
         
-        self.parameter_panel(parameters = self.spectra_object.params)
+        self.make_parameter_panel(parameters = self.spectra_object.params)
         self.make_interactive_plot()
         self.fitting_panel = fitting_panel(self.spectra_object)
 
 
-    def parameter_panel(self,parameters = None):
+    def make_parameter_panel(self,parameters = None):
         if parameters == None:
             print('No parameters specified')
             return
@@ -579,11 +604,19 @@ class guipyter(spectra):
                 for comp_name in self.spectra_object.mod.components[i]._param_names]) for i in range(len(self.spectra_object.mod.components))]
             display(self.paramwidgetscontainer)
 
+    def update_parameter_panel(self,parameters = None):
+        self.paramwidgets = {p_name:ParameterWidgetGroup(p,slider_ctrl = self.ctrl_pars[p_name],sliderlims = self.ctrl_lims[p_name])\
+                 for p_name, p in parameters.items() if p_name in self.rel_pars}
 
     def make_interactive_plot(self):
 
         self.change_pars_to_fit_button = Button(
             description="Change Parameters to Fit Result",
+            layout = Layout(width = '300px', margin = '0 0 5ps 0')
+            ) 
+
+        self.reset_slider_lims_button = Button(
+            description="Reset Slider Max",
             layout = Layout(width = '300px', margin = '0 0 5ps 0')
             ) 
 
@@ -596,7 +629,17 @@ class guipyter(spectra):
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
-        
+
+        self.reset_slider_widget =  Dropdown(
+            # options=list(np.arange(0,len(self.data['isub']))),      # Get rid ofthis once data dict is no longer used
+            options= [par for par in self.ctrl_pars.keys() if self.ctrl_pars[par]],  
+            # options=list(np.arange(0,len(self.isub))),     
+            value = None,
+            description='Slider Reset',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )        
         ### Created Now, but used in the interactive fitting function
         # self.select_parameters_widget = Dropdown(
         #     options = [None] + list(np.arange(0,len(self.data['isub']))),
@@ -623,13 +666,19 @@ class guipyter(spectra):
         @self.change_pars_to_fit_button.on_click
         def plot_on_click(b):
             with out:
-
+                # self.spectra_object.params = self.spectra_object.fit_results[self.data_init_widget.value].params.copy()
+                # self.update_parameter_panel(parameters = self.spectra_object.params)
                 for pars in self.paramwidgets.keys():
-
+                #     # print(self.spectra_object.fit_results[self.data_init_widget.value].params[pars])
+                    # self.paramwidgets[pars].update_widget_group(self.spectra_object.params[pars])
                     if self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr == None:
-                        # self.paramwidgets[pars].expr_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr)
                         self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
 
+        @self.reset_slider_lims_button.on_click
+        def plot_on_click(b):
+            with out:
+                if self.reset_slider_widget.value !=None:
+                    self.paramwidgets[self.reset_slider_widget.value].ctrl_slider.max  = 2*self.paramwidgets[self.reset_slider_widget.value].ctrl_slider.value
 
         # Create the interactive plot, then build the slider/graph parameter controls
         plotkwargs = {**{pw.name:pw.ctrl_slider for pw in self.paramwidgets.values() if hasattr(pw,'ctrl_slider')},\
@@ -637,7 +686,7 @@ class guipyter(spectra):
         self.intplot = interactive(self.interactive_plot,**plotkwargs)
         
         vb = VBox(self.intplot.children[0:-1])
-        vb2 = VBox([HBox([self.data_init_widget,self.change_pars_to_fit_button]),self.intplot.children[-1]])
+        vb2 = VBox([HBox([VBox([self.data_init_widget,self.reset_slider_widget]),VBox([self.change_pars_to_fit_button,self.reset_slider_lims_button])]),self.intplot.children[-1]])
         hb = HBox([vb,vb2])
             
         display(hb)
