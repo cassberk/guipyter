@@ -530,11 +530,24 @@ class guipyter(spectra):
             f = open('/Volumes/GoogleDrive/My Drive/XPS/XPS_Library/xps/models/load_model_info.pkl', 'rb')   # 'r' for reading; can be omitted
             load_dict = pickle.load(f)         # load file content as mydict
             f.close() 
+            try:
+                self.spectra_object.mod = lm.model.load_model(load_dict[load_model]['model_path'])
+            except:
+                print(load_dict[load_model].keys())
+            try:
+                self.spectra_object.params = pickle.load(open(load_dict[load_model]['params_path'],"rb"))
+            except:
+                print(self.spectra_object.params)
+            try:
+                self.spectra_object.pairlist = load_dict[load_model]['pairlist']
+            except:
+                print(load_dict[load_model]['pairlist'])
+            try:
+                self.spectra_object.element_ctrl = load_dict[load_model]['element_ctrl']
+            except:
+                print(load_dict[load_model]['element_ctrl'])
 
-            self.spectra_object.mod = lm.model.load_model(load_dict[load_model]['model_path'])
-            self.spectra_object.params = pickle.load(open(load_dict[load_model]['params_path'],"rb"))[0]
-            self.spectra_object.pairlist = load_dict[load_model]['pairlist']
-            self.spectra_object.element_ctrl = load_dict[load_model]['element_ctrl']
+
 
         elif load_spectra_object:
             self.spectra_object.mod = dc(load_spectra_object.mod)
