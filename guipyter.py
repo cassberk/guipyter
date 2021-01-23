@@ -535,6 +535,12 @@ class guipyter(spectra):
             self.spectra_object.params = pickle.load(open(load_dict[load_model]['params_path'],"rb"))[0]
             self.spectra_object.pairlist = load_dict[load_model]['pairlist']
             self.spectra_object.element_ctrl = load_dict[load_model]['element_ctrl']
+
+        elif load_spectra_object:
+            self.spectra_object.mod = dc(load_spectra_object.mod)
+            self.spectra_object.element_ctrl = dc(load_spectra_object.element_ctrl)
+            self.spectra_object.pairlist = dc(load_spectra_object.pairlist)
+            self.spectra_object.params = dc(load_spectra_object.params)
         # else:
             # self.spectra_object.mod = spectra_object.mod
             # self.spectra_object.element_ctrl = spectra_object.element_ctrl
