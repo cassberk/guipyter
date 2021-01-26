@@ -554,6 +554,7 @@ class guipyter(spectra):
             self.spectra_object.element_ctrl = dc(load_spectra_object.element_ctrl)
             self.spectra_object.pairlist = dc(load_spectra_object.pairlist)
             self.spectra_object.params = dc(load_spectra_object.params)
+            self.spectra_object.fit_results = dc(load_spectra_object.fit_results)
         # else:
             # self.spectra_object.mod = spectra_object.mod
             # self.spectra_object.element_ctrl = spectra_object.element_ctrl
