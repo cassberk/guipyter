@@ -18,9 +18,9 @@ import lmfit as lm
 from lmfit.model import load_model, load_modelresult
 
 import sys
-# sys.path.append("/Volumes/GoogleDrive/My Drive/XPS/XPS_Library")
 
 import xps_peakfit
+import xps_peakfit.models.models
 from xps_peakfit import bkgrds as background_sub
 from xps_peakfit.helper_functions import *
 from xps_peakfit.gui_element_dicts import *
@@ -147,6 +147,7 @@ class ParameterWidgetGroup:
         # one convenience method to close (i.e., hide and disconnect) all
         # widgets in this group
         self.value_text.close()
+        self.expr_text.close()
         self.min_text.close()
         self.max_text.close()
         self.vary_checkbox.close()
@@ -520,46 +521,58 @@ class fitting_panel:
 
 class guipyter(spectra):
 
-    def __init__(self,spectra_object,orbital=None,parameters=None,model=None,pairlist=None,element_ctrl=None,\
+    def __init__(self,input_object,orbital=None,parameters=None,model=None,pairlist=None,element_ctrl=None,\
         spectra_name = None, carbon_adjust=None,load_spectra_object = False,load_model = False,autofit = False):
 
-        # xps_spec.__init__(self,sample_object,orbital,parameters,model,pairlist,element_ctrl,\
-        # spectra_name, carbon_adjust,load_spectra_object,load_model,autofit)
+
+        self.select_spectra_widget = Dropdown(
+            options = input_object.element_scans,
+            description = 'Select Spectra',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )
+
+        self.select_model_widget = Dropdown(
+            options = [None] + xps_peakfit.models.models.model_list(),
+            description = 'Select Model',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )
+        self.select_spectra_button = Button(description="select spectra")
+        display(HBox([self.select_spectra_widget,self.select_model_widget,self.select_spectra_button]))
+
+        full_panel_out = Output()
+        display(full_panel_out)
+
+        @self.select_spectra_button.on_click
+        def plot_on_click(b):
+
+            with full_panel_out:
+                clear_output(True)
+                # print(self.select_spectra_widget.value)
+                # print(self.select_model_widget.value)
+                self.load_model = self.select_model_widget.value
+                self.create_full_panel(spectra_object = input_object.__dict__[self.select_spectra_widget.value])
+                
+
+    def create_full_panel(self,spectra_object):
         self.spectra_object = spectra_object
-        if load_model:
-            f = open('/Volumes/GoogleDrive/My Drive/XPS/XPS_Library/xps/models/load_model_info.pkl', 'rb')   # 'r' for reading; can be omitted
-            load_dict = pickle.load(f)         # load file content as mydict
-            f.close() 
-            try:
-                self.spectra_object.mod = lm.model.load_model(load_dict[load_model]['model_path'])
-            except:
-                print(load_dict[load_model].keys())
-            try:
-                self.spectra_object.params = pickle.load(open(load_dict[load_model]['params_path'],"rb"))
-            except:
-                print(self.spectra_object.params)
-            try:
-                self.spectra_object.pairlist = load_dict[load_model]['pairlist']
-            except:
-                print(load_dict[load_model]['pairlist'])
-            try:
-                self.spectra_object.element_ctrl = load_dict[load_model]['element_ctrl']
-            except:
-                print(load_dict[load_model]['element_ctrl'])
+        
+        if self.load_model != None:
+            ldd_mod = xps_peakfit.models.models.load_model(self.load_model)
+            self.spectra_object.mod = ldd_mod[0]
+            self.spectra_object.params = ldd_mod[1]
+            self.spectra_object.pairlist = ldd_mod[2]
+            self.spectra_object.element_ctrl = ldd_mod[3]
 
-
-
-        elif load_spectra_object:
-            self.spectra_object.mod = dc(load_spectra_object.mod)
-            self.spectra_object.element_ctrl = dc(load_spectra_object.element_ctrl)
-            self.spectra_object.pairlist = dc(load_spectra_object.pairlist)
-            self.spectra_object.params = dc(load_spectra_object.params)
-            self.spectra_object.fit_results = dc(load_spectra_object.fit_results)
-        # else:
-            # self.spectra_object.mod = spectra_object.mod
-            # self.spectra_object.element_ctrl = spectra_object.element_ctrl
-            # self.spectra_object.pairlist = spectra_object.pairlist
-            # self.spectra_object.params = spectra_object.params
+        # elif self.load_model == None:
+        #     self.spectra_object.mod = dc(load_spectra_object.mod)
+        #     self.spectra_object.element_ctrl = dc(load_spectra_object.element_ctrl)
+        #     self.spectra_object.pairlist = dc(load_spectra_object.pairlist)
+        #     self.spectra_object.params = dc(load_spectra_object.params)
+        #     self.spectra_object.fit_results = dc(load_spectra_object.fit_results)
 
         self.E= spectra_object.E
         self.I= spectra_object.I
@@ -586,7 +599,7 @@ class guipyter(spectra):
     
         self.ctrl_prefixes = [[prefix for pairs in self.spectra_object.pairlist \
             for prefix in pairs][i] for i in self.spectra_object.element_ctrl]
-        print(self.ctrl_prefixes)
+        # print('Control Prefixes:', self.ctrl_prefixes)
         
         self.ctrl_pars = {par: any(x in par for x in self.ctrl_prefixes) for par in self.rel_pars}
         self.ctrl_lims = {}
@@ -606,7 +619,7 @@ class guipyter(spectra):
         self.make_parameter_panel(parameters = self.spectra_object.params)
         self.make_interactive_plot()
         self.fitting_panel = fitting_panel(self.spectra_object)
-
+    
 
     def make_parameter_panel(self,parameters = None):
         if parameters == None:
@@ -632,9 +645,11 @@ class guipyter(spectra):
                 for comp_name in self.spectra_object.mod.components[i]._param_names]) for i in range(len(self.spectra_object.mod.components))]
             display(self.paramwidgetscontainer)
 
+
     def update_parameter_panel(self,parameters = None):
         self.paramwidgets = {p_name:ParameterWidgetGroup(p,slider_ctrl = self.ctrl_pars[p_name],sliderlims = self.ctrl_lims[p_name])\
                  for p_name, p in parameters.items() if p_name in self.rel_pars}
+
 
     def make_interactive_plot(self):
 
@@ -668,14 +683,6 @@ class guipyter(spectra):
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )        
-        ### Created Now, but used in the interactive fitting function
-        # self.select_parameters_widget = Dropdown(
-        #     options = [None] + list(np.arange(0,len(self.data['isub']))),
-        #     description = 'Select Fit Parameters',
-        #     style = {'description_width': 'initial'},
-        #     disabled=False,
-        #     layout = Layout(width = '400px', margin = '0 0 5ps 0')
-        #     )
 
         
         wlim = FloatRangeSlider (
