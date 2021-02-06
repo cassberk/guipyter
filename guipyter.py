@@ -24,6 +24,7 @@ import xps_peakfit.models.models
 from xps_peakfit import bkgrds as background_sub
 from xps_peakfit.helper_functions import *
 from xps_peakfit.gui_element_dicts import *
+import xps_peakfit.autofit.autofit
 
 from xps_peakfit.spectra import spectra
 # import xps_peakfit.auto_fitting
@@ -165,7 +166,7 @@ class ParameterWidgetGroup:
     def update_widget_group(self,par):
         # print(par)
         self.par = par
-        self.vary_checkbox.value =  self.par.vary
+        self.vary_checkbox.value =  bool(self.par.vary)
         self.min_text.value =  self.par.min
         self.max_text.value =  self.par.max
         # self.define_widgets()
@@ -263,6 +264,8 @@ class fitting_panel:
         self.save_params_button = Button(description="Save Parameters")      
         self.save_fig_button = Button(description="Save Figure") 
         self.plot_loaded_parameters_button = Button(description="Plot Loaded Parameters") 
+        self.autofit_button = Button(description="View Autofit")
+
           
         
         self.fit_method_widget = Dropdown(
@@ -307,9 +310,9 @@ class fitting_panel:
             indent=False
             )
 
-        self.use_input_params = Checkbox(
+        self.use_prev_fit_result_params = Checkbox(
             value= False,
-            description='Initialize with param list',
+            description='Update Params with Previous Fit Result',
             style = {'description_width': 'initial'},
             disabled=False,
             indent=False
@@ -375,7 +378,7 @@ class fitting_panel:
         
         h2 = HBox([self.fit_button,self.plot_button,self.plot_loaded_parameters_button,v1_save])
         
-        vfinal = VBox([h1, h2, self.plotfit_chkbx, self.autofit_chkbx, self.use_input_params, self.ref_lines_chkbx, self.plot_with_background_sub, \
+        vfinal = VBox([h1, h2, self.plotfit_chkbx, HBox([self.autofit_chkbx,self.autofit_button]), self.use_prev_fit_result_params, self.ref_lines_chkbx, self.plot_with_background_sub, \
                                self.plot_all_chkbx])
         
         display(vfinal)
@@ -396,7 +399,7 @@ class fitting_panel:
                     os.makedirs(os.path.join(os.getcwd(),'fit_parameters'))
 
                 # fit_params_list = [self.fit_results[i].params for i in self.fit_results_idx]
-                fit_params_list = [j for j,x in enumerate(self.spectra_objet.fit_results) if x]
+                fit_params_list = [j for j,x in enumerate(self.spectra_object.fit_results) if x]
                 # print(os.getcwd())
                 save_location = os.path.join(os.getcwd(),'fit_parameters',self.save_params_name.value +'.pkl')
                 f = open(save_location,"wb")
@@ -461,6 +464,20 @@ class fitting_panel:
                 self.plot_input_parameters()
                 show_inline_matplotlib_plots()  
                 
+        @self.autofit_button.on_click
+        def plot_on_click(b):
+            with out:
+                if self.spectra_to_fit_widget.value == 'All':
+                    specnum = 0
+                else:
+                    specnum = self.spectra_to_fit_widget.value
+                print(specnum)
+                params_guess = xps_peakfit.autofit.autofit.autofit(self.spectra_object.esub,self.spectra_object.isub[specnum[0]],self.spectra_object.orbital)
+                for par in params_guess.keys():
+                    self.spectra_object.params[par].value = params_guess[par]
+
+
+
 
     # Fitting Panel Methods            
     def fit_spectra(self):
@@ -486,7 +503,8 @@ class fitting_panel:
             fit_points = list(self.spectra_to_fit_widget.value)
             print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
-        self.spectra_object.fit(specific_points = fit_points,plotflag = False, track = False)
+        self.spectra_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
+            autofit = self.autofit_chkbx.value)
         self.plot_spectra()
 
 
