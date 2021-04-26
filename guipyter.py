@@ -472,9 +472,12 @@ class fitting_panel:
                 else:
                     specnum = self.spectra_to_fit_widget.value
                 print(specnum)
-                params_guess = xps_peakfit.autofit.autofit.autofit(self.spectra_object.esub,self.spectra_object.isub[specnum[0]],self.spectra_object.orbital)
-                for par in params_guess.keys():
-                    self.spectra_object.params[par].value = params_guess[par]
+                if not hasattr(self,'autofit'):
+                    self.autofit = xps_peakfit.autofit.autofit.autofit(self.spectra_object.esub,self.spectra_object.isub[specnum[0]],self.spectra_object.orbital)
+                elif hasattr(self,'autofit'):
+                    self.autofit.guess_params(energy = self.spectra_object.esub,intensity = self.spectra_object.isub[specnum[0]])
+                for par in self.autofit.guess_pars.keys():
+                    self.spectra_object.params[par].value = self.autofit.guess_pars[par]
 
 
 
@@ -542,9 +545,32 @@ class guipyter(spectra):
     def __init__(self,input_object,orbital=None,parameters=None,model=None,pairlist=None,element_ctrl=None,\
         spectra_name = None, carbon_adjust=None,load_spectra_object = False,load_model = False,autofit = False):
 
+        input_object_list = []
+        if type(input_object) is xps_peakfit.sample.sample:
+            self.samples = {}
+            self.samples[input_object.sample_name] = input_object
+
+        elif str(type(input_object)).split('.')[1] == "CompoundSpectra'>":
+            print('detected')
+            return
+            self.samples = {}
+            self.samples[input_object.sample_name] = input_object
+
+        elif type(input_object) is list:
+            self.samples = {s.sample_name:s for s in input_object}
+        elif type(input_object) is dict:
+            self.samples = input_object
+
+        self.select_sample_widget = Dropdown(
+            options = list(self.samples.keys()),
+            description = 'Select Sample',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )
 
         self.select_spectra_widget = Dropdown(
-            options = input_object.element_scans,
+            options = self.samples[self.select_sample_widget.value].element_scans,
             description = 'Select Spectra',
             style = {'description_width': 'initial'},
             disabled=False,
@@ -558,8 +584,18 @@ class guipyter(spectra):
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
+        self.select_sample_model_widget = Dropdown(
+            options = [None]+list(self.samples.keys()),
+            description = 'Select Sample',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )
+
         self.select_spectra_button = Button(description="select spectra")
-        display(HBox([self.select_spectra_widget,self.select_model_widget,self.select_spectra_button]))
+
+        display(HBox([self.select_sample_widget, self.select_spectra_widget,self.select_model_widget,\
+            self.select_sample_model_widget, self.select_spectra_button]))
 
         full_panel_out = Output()
         display(full_panel_out)
@@ -572,7 +608,11 @@ class guipyter(spectra):
                 # print(self.select_spectra_widget.value)
                 # print(self.select_model_widget.value)
                 self.load_model = self.select_model_widget.value
-                self.create_full_panel(spectra_object = input_object.__dict__[self.select_spectra_widget.value])
+                self.load_model_from_sample = self.select_sample_model_widget.value
+                if (self.load_model != None) and (self.load_model_from_sample != None):
+                    print('You cant choose to load a model from two places')
+                else:
+                    self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_spectra_widget.value])
                 
 
     def create_full_panel(self,spectra_object):
@@ -584,6 +624,12 @@ class guipyter(spectra):
             self.spectra_object.params = ldd_mod[1]
             self.spectra_object.pairlist = ldd_mod[2]
             self.spectra_object.element_ctrl = ldd_mod[3]
+
+        elif self.load_model_from_sample != None:
+            self.spectra_object.mod = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].mod)
+            self.spectra_object.params = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].params)
+            self.spectra_object.pairlist = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].pairlist)
+            self.spectra_object.element_ctrl = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].element_ctrl)
 
         # elif self.load_model == None:
         #     self.spectra_object.mod = dc(load_spectra_object.mod)
@@ -760,9 +806,9 @@ class guipyter(spectra):
     def interactive_plot(self,*args,**kwargs):
         """interactive plotting function to be called by ipywidget.interactive"""        
 
-        plt.figure(figsize=(8,6))
-        p1 = plt.plot(self.esub,self.isub[self.data_init_widget.value],'bo')
-        p2 = plt.plot(self.esub,self.spectra_object.mod.eval(self.spectra_object.params,x=self.esub) , color = 'black')
+        fig,ax = plt.subplots(figsize=(8,6))
+        p1 = ax.plot(self.esub,self.isub[self.data_init_widget.value],'bo')
+        p2 = ax.plot(self.esub,self.spectra_object.mod.eval(self.spectra_object.params,x=self.esub) , color = 'black')
 
         
         
@@ -771,17 +817,17 @@ class guipyter(spectra):
         
         for pairs in enumerate(self.spectra_object.pairlist):
 
-            p[pairs[0]] = plt.fill_between(self.esub,self.combine_components(pairs[1]),\
+            p[pairs[0]] = ax.fill_between(self.esub,self.combine_components(pairs[1]),\
                                            color = element_color[pairs[1][0]],alpha = 0.3)
             # p[pairs[0]] = plt.fill_between(self.E,sum([self.spectra_object.mod.eval_components(x=self.E)[comp] for comp in pairs[1]]),\
             #                                color = element_color[pairs[1][0]],alpha = 0.3)
                                            
                                                   
             
-        plt.xlim(np.max(kwargs['xlim']),np.min(kwargs['xlim']))
+        ax.set_xlim(np.max(kwargs['xlim']),np.min(kwargs['xlim']))
 
-        plt.legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
-
+        ax.legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
+        
         plt.show()
 
 
