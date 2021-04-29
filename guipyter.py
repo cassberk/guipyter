@@ -227,9 +227,9 @@ class ParameterWidgetGroup:
 
 class fitting_panel:
 
-    def __init__(self, spectra_object):
-        self.spectra_object = spectra_object
-
+    def __init__(self, fit_object, n_scans):
+        self.fit_object = fit_object
+       
     # def interactive_fit(self):
  
 
@@ -287,7 +287,7 @@ class fitting_panel:
             
         self.spectra_to_fit_widget = SelectMultiple(
             # options=[None, 'All'] + list(np.arange(0,len(self.spectra_object.data['isub']))), # Get rid ofthis once data dict is no longer used
-            options=[None, 'All'] + list(np.arange(0,len(self.spectra_object.isub))), # Get rid ofthis once data dict is no longer used
+            options=[None, 'All'] + list(np.arange(0,n_scans)), # Get rid ofthis once data dict is no longer used
             value = ('All',),
             description='Spectra to fit',
             style = {'description_width': 'initial'},
@@ -361,7 +361,7 @@ class fitting_panel:
 
         self.select_parameters_widget = Dropdown(
             # options = [None] + list(np.arange(0,len(self.spectra_object.data['isub']))), # Get rid ofthis once data dict is no longer used
-            options = [None] + list(np.arange(0,len(self.spectra_object.isub))), # Get rid ofthis once data dict is no longer used
+            options = [None] + list(np.arange(0,n_scans)), # Get rid ofthis once data dict is no longer used
             description = 'Select Fit Parameters',
             style = {'description_width': 'initial'},
             disabled=False,
@@ -399,7 +399,7 @@ class fitting_panel:
                     os.makedirs(os.path.join(os.getcwd(),'fit_parameters'))
 
                 # fit_params_list = [self.fit_results[i].params for i in self.fit_results_idx]
-                fit_params_list = [j for j,x in enumerate(self.spectra_object.fit_results) if x]
+                fit_params_list = [j for j,x in enumerate(self.fit_object.fit_results) if x]
                 # print(os.getcwd())
                 save_location = os.path.join(os.getcwd(),'fit_parameters',self.save_params_name.value +'.pkl')
                 f = open(save_location,"wb")
@@ -473,11 +473,11 @@ class fitting_panel:
                     specnum = self.spectra_to_fit_widget.value
                 print(specnum)
                 if not hasattr(self,'autofit'):
-                    self.autofit = xps_peakfit.autofit.autofit.autofit(self.spectra_object.esub,self.spectra_object.isub[specnum[0]],self.spectra_object.orbital)
+                    self.autofit = xps_peakfit.autofit.autofit.autofit(self.fit_object.esub,self.fit_object.isub[specnum[0]],self.fit_object.orbital)
                 elif hasattr(self,'autofit'):
-                    self.autofit.guess_params(energy = self.spectra_object.esub,intensity = self.spectra_object.isub[specnum[0]])
+                    self.autofit.guess_params(energy = self.fit_object.esub,intensity = self.fit_object.isub[specnum[0]])
                 for par in self.autofit.guess_pars.keys():
-                    self.spectra_object.params[par].value = self.autofit.guess_pars[par]
+                    self.fit_object.params[par].value = self.autofit.guess_pars[par]
 
 
 
@@ -506,7 +506,7 @@ class fitting_panel:
             fit_points = list(self.spectra_to_fit_widget.value)
             print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
-        self.spectra_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
+        self.fit_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
             autofit = self.autofit_chkbx.value)
         self.plot_spectra()
 
@@ -515,7 +515,7 @@ class fitting_panel:
         ### Plotting Conditionals
         if self.plot_all_chkbx.value is True:
             print('Plotting all spectra ...')
-            plot_points = [j for j,x in enumerate(self.spectra_object.fit_results) if x]
+            plot_points = [j for j,x in enumerate(self.fit_object.fit_results) if x]
 
         elif self.plot_all_chkbx.value is False:
             print('Plotting' + str(self.spectra_to_fit_widget.value) + ' spectra ...')
@@ -525,12 +525,12 @@ class fitting_panel:
                 return
 
             elif 'All' in self.spectra_to_fit_widget.value:
-                plot_points = [j for j,x in enumerate(self.spectra_object.fit_results) if x]
+                plot_points = [j for j,x in enumerate(self.fit_object.fit_results) if x]
 
             else:
                 plot_points = dc(list(self.spectra_to_fit_widget.value))    
         
-        self.spectra_object.plot_fitresults(specific_points = plot_points) 
+        self.fit_object.plot_fitresults(specific_points = plot_points) 
 
     
 
@@ -549,17 +549,22 @@ class guipyter(spectra):
         if type(input_object) is xps_peakfit.sample.sample:
             self.samples = {}
             self.samples[input_object.sample_name] = input_object
+            self.compound = False
 
         elif str(type(input_object)).split('.')[1] == "CompoundSpectra'>":
-            print('detected')
-            return
             self.samples = {}
-            self.samples[input_object.sample_name] = input_object
-
+            self.samples['Not named yet'] = input_object
+            self.compound = True
+            self.params = input_object.params
         elif type(input_object) is list:
             self.samples = {s.sample_name:s for s in input_object}
+            self.compound = False
+
         elif type(input_object) is dict:
             self.samples = input_object
+            self.compound = False
+
+
 
         self.select_sample_widget = Dropdown(
             options = list(self.samples.keys()),
@@ -612,12 +617,16 @@ class guipyter(spectra):
                 if (self.load_model != None) and (self.load_model_from_sample != None):
                     print('You cant choose to load a model from two places')
                 else:
-                    self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_spectra_widget.value])
+                    self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_spectra_widget.value],compound = self.compound)
                 
 
-    def create_full_panel(self,spectra_object):
+    def create_full_panel(self,spectra_object,compound):
         self.spectra_object = spectra_object
-        
+        if compound:
+            other_spectra = [s_name for s_name in self.samples[self.select_sample_widget.value].element_scans if not s_name in self.spectra_object.orbital]
+            self.connected_spectra = {s_name:self.samples[self.select_sample_widget.value].__dict__[s_name] for s_name in other_spectra}
+            self.connected_prefixlist = {conn_spec[0]:[comp.prefix for comp in conn_spec[1].mod.components] for conn_spec in self.connected_spectra.items()}
+
         if self.load_model != None:
             ldd_mod = xps_peakfit.models.models.load_model(self.load_model)
             self.spectra_object.mod = ldd_mod[0]
@@ -660,6 +669,8 @@ class guipyter(spectra):
 
         self.rel_pars = [par for component_pars in [model_component._param_names for model_component in self.spectra_object.mod.components] \
             for par in component_pars]
+        
+
     
         self.ctrl_prefixes = [[prefix for pairs in self.spectra_object.pairlist \
             for prefix in pairs][i] for i in self.spectra_object.element_ctrl]
@@ -680,9 +691,18 @@ class guipyter(spectra):
             if ('fraction' in par) or ('skew' in par):
                 self.ctrl_lims[par] = (0,1)
         
-        self.make_parameter_panel(parameters = self.spectra_object.params)
+        if self.compound:
+            parameters = self.samples[self.select_sample_widget.value].params
+            fitobject = self.samples[self.select_sample_widget.value]
+            n_scans = self.samples[self.select_sample_widget.value].n_scans
+        elif not self.compound:
+            parameters = self.spectra_object.params
+            fitobject = self.spectra_object
+            n_scans = len(self.spectra_object.isub)
+
+        self.make_parameter_panel(parameters = parameters)
         self.make_interactive_plot()
-        self.fitting_panel = fitting_panel(self.spectra_object)
+        self.fitting_panel = fitting_panel(fitobject,n_scans)
     
 
     def make_parameter_panel(self,parameters = None):
@@ -704,15 +724,15 @@ class guipyter(spectra):
             # for pw in self.paramwidgets.values():
             #     pw.value_text.observe(lambda e: self.update_plot(), names='value')
 
-            """The children are the paramwidgets for each model"""
+            ### The children are the paramwidgets for each model
             self.paramwidgetscontainer.children = [HBox([self.paramwidgets[comp_name].get_widget() \
                 for comp_name in self.spectra_object.mod.components[i]._param_names]) for i in range(len(self.spectra_object.mod.components))]
             display(self.paramwidgetscontainer)
 
 
-    def update_parameter_panel(self,parameters = None):
-        self.paramwidgets = {p_name:ParameterWidgetGroup(p,slider_ctrl = self.ctrl_pars[p_name],sliderlims = self.ctrl_lims[p_name])\
-                 for p_name, p in parameters.items() if p_name in self.rel_pars}
+    # def update_parameter_panel(self,parameters = None):
+    #     self.paramwidgets = {p_name:ParameterWidgetGroup(p,slider_ctrl = self.ctrl_pars[p_name],sliderlims = self.ctrl_lims[p_name])\
+    #              for p_name, p in parameters.items() if p_name in self.rel_pars}
 
 
     def make_interactive_plot(self):
@@ -728,7 +748,6 @@ class guipyter(spectra):
             ) 
 
         self.data_init_widget =  Dropdown(
-            # options=list(np.arange(0,len(self.data['isub']))),      # Get rid ofthis once data dict is no longer used
             options=list(np.arange(0,len(self.isub))),      
             value = 0,
             description='Data to initialize',
@@ -738,7 +757,6 @@ class guipyter(spectra):
             )
 
         self.reset_slider_widget =  Dropdown(
-            # options=list(np.arange(0,len(self.data['isub']))),      # Get rid ofthis once data dict is no longer used
             options= [par for par in self.ctrl_pars.keys() if self.ctrl_pars[par]],  
             # options=list(np.arange(0,len(self.isub))),     
             value = None,
@@ -748,17 +766,30 @@ class guipyter(spectra):
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )        
 
-        
-        wlim = FloatRangeSlider (
+        wlim = {}
+        wlim[self.spectra_object.orbital] = FloatRangeSlider (
                 value=[np.min(self.esub), np.max(self.esub)],
                 min = np.min(self.esub),
                 max =np.max(self.esub),
                 step  = 0.01,
-                description = 'xlim',
+                description = self.spectra_object.orbital+'_xlim',
                 style = {'description_width': 'initial'},
                 layout = Layout(width = '300px', margin = '0 0 5ps 0')
                 )      
-    
+        if self.compound:
+            for orbital in self.connected_spectra.keys():
+                wlim[orbital] = FloatRangeSlider (
+                        value=[np.min(self.connected_spectra[orbital].esub), np.max(self.connected_spectra[orbital].esub)],
+                        min = np.min(self.connected_spectra[orbital].esub),
+                        max =np.max(self.connected_spectra[orbital].esub),
+                        step  = 0.01,
+                        description = orbital+'_xlim',
+                        style = {'description_width': 'initial'},
+                        layout = Layout(width = '300px', margin = '0 0 5ps 0')
+                        )    
+
+
+
         out = Output()
         display(out)
 
@@ -781,7 +812,7 @@ class guipyter(spectra):
 
         # Create the interactive plot, then build the slider/graph parameter controls
         plotkwargs = {**{pw.name:pw.ctrl_slider for pw in self.paramwidgets.values() if hasattr(pw,'ctrl_slider')},\
-            **{wlim.description:wlim}}
+            **{plotlim.description:plotlim for plotlim in wlim.values()}}
         self.intplot = interactive(self.interactive_plot,**plotkwargs)
         
         vb = VBox(self.intplot.children[0:-1])
@@ -790,14 +821,17 @@ class guipyter(spectra):
             
         display(hb)
 
-    def combine_components(self,pair):
+    def combine_components(self,pair,spectra_object,prefixlist,energy):
         """Functinon for combining doublets"""
         tempindex = np.empty(len(pair))
         
         for i in range(len(pair)):
-            tempindex[i] = self.prefixlist.index(pair[i])
-                    
-        combined_comps = [self.spectra_object.mod.components[int(tempindex[i])].eval(self.spectra_object.params,x=self.esub) for i in range(len(tempindex))]
+            tempindex[i] = prefixlist.index(pair[i])
+        
+        if not self.compound:
+            combined_comps = [spectra_object.mod.components[int(tempindex[i])].eval(spectra_object.params,x=energy) for i in range(len(tempindex))]
+        elif self.compound:
+            combined_comps = [spectra_object.mod.components[int(tempindex[i])].eval(self.params,x=energy) for i in range(len(tempindex))]
         return [sum(x) for x in zip(*combined_comps)]
         
         
@@ -806,31 +840,66 @@ class guipyter(spectra):
     def interactive_plot(self,*args,**kwargs):
         """interactive plotting function to be called by ipywidget.interactive"""        
 
-        fig,ax = plt.subplots(figsize=(8,6))
-        p1 = ax.plot(self.esub,self.isub[self.data_init_widget.value],'bo')
-        p2 = ax.plot(self.esub,self.spectra_object.mod.eval(self.spectra_object.params,x=self.esub) , color = 'black')
 
+        if not self.compound:
+            fig,ax = plt.subplots(figsize=(8,6))
+            p1 = ax.plot(self.esub,self.isub[self.data_init_widget.value],'bo')
+            p2 = ax.plot(self.esub,self.spectra_object.mod.eval(self.spectra_object.params,x=self.esub) , color = 'black')
         
-        
-        p = [[] for i in range(len(self.spectra_object.pairlist))]
-        fit_legend = [element_text[element[0]] for element in self.spectra_object.pairlist]
-        
-        for pairs in enumerate(self.spectra_object.pairlist):
-
-            p[pairs[0]] = ax.fill_between(self.esub,self.combine_components(pairs[1]),\
-                                           color = element_color[pairs[1][0]],alpha = 0.3)
-            # p[pairs[0]] = plt.fill_between(self.E,sum([self.spectra_object.mod.eval_components(x=self.E)[comp] for comp in pairs[1]]),\
-            #                                color = element_color[pairs[1][0]],alpha = 0.3)
-                                           
-                                                  
+            p = [[] for i in range(len(self.spectra_object.pairlist))]
+            fit_legend = [element_text[element[0]] for element in self.spectra_object.pairlist]
             
-        ax.set_xlim(np.max(kwargs['xlim']),np.min(kwargs['xlim']))
+            for pairs in enumerate(self.spectra_object.pairlist):
 
-        ax.legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
-        
-        plt.show()
+                p[pairs[0]] = ax.fill_between(self.esub,self.combine_components(pairs[1],self.spectra_object,self.prefixlist,energy = self.esub),\
+                                            color = element_color[pairs[1][0]],alpha = 0.3)
+
+                # p[pairs[0]] = plt.fill_between(self.E,sum([self.spectra_object.mod.eval_components(x=self.E)[comp] for comp in pairs[1]]),\
+                #                                color = element_color[pairs[1][0]],alpha = 0.3)
+                                            
+                                                    
+                
+            ax.set_xlim(np.max(kwargs['xlim']),np.min(kwargs['xlim']))
+
+            ax.legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
+            
+            plt.show()
+
+        elif self.compound:
+            n_plots = len(self.connected_spectra.keys())+1
+            fig,ax = plt.subplots(n_plots,1,figsize=(8,n_plots*4))
+            p1 = ax[0].plot(self.esub,self.isub[self.data_init_widget.value],'bo')
+            p2 = ax[0].plot(self.esub,self.spectra_object.mod.eval(self.params,x=self.esub) , color = 'black')
 
 
+            p = [[] for i in range(len(self.spectra_object.pairlist))]
+            fit_legend = [element_text[element[0]] for element in self.spectra_object.pairlist]
+            for pairs in enumerate(self.spectra_object.pairlist):
+                p[pairs[0]] = ax[0].fill_between(self.esub,self.combine_components(pairs[1],self.spectra_object,self.prefixlist,energy = self.esub),\
+                                            color = element_color[pairs[1][0]],alpha = 0.3)
+
+            ax[0].set_xlim(np.max(kwargs[self.spectra_object.orbital+'_xlim']),np.min(kwargs[self.spectra_object.orbital+'_xlim']))
+
+
+            for orb in enumerate(self.connected_spectra.keys()):
+                energy = self.connected_spectra[orb[1]].esub
+                spec_obj = self.connected_spectra[orb[1]]
+                ax[orb[0]+1].plot(energy,spec_obj.isub[self.data_init_widget.value],'bo')
+                ax[orb[0]+1].plot(energy,spec_obj.mod.eval(self.params,x=energy) , color = 'black')
+
+            
+                for pairs in enumerate(spec_obj.pairlist):
+
+                    ax[orb[0]+1].fill_between(energy,self.combine_components(pairs[1],spec_obj,self.connected_prefixlist[orb[1]],energy = energy),\
+                                                color = element_color[pairs[1][0]],alpha = 0.3)
+                                  
+                                                    
+                ax[orb[0]+1].set_xlim(np.max(kwargs[spec_obj.orbital+'_xlim']),np.min(kwargs[spec_obj.orbital+'_xlim']))
+
+
+            ax[0].legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
+            
+            plt.show()
 
 ### This is in order to use this while using the matplotlib widget backend not developed yet
 #     def plot_widget(self):
