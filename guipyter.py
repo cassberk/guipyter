@@ -19,15 +19,15 @@ from lmfit.model import load_model, load_modelresult
 
 import sys
 
-import xps_peakfit
-import xps_peakfit.models.models
-from xps_peakfit import bkgrds as background_sub
-from xps_peakfit.helper_functions import *
-from xps_peakfit.gui_element_dicts import *
-import xps_peakfit.autofit.autofit
+import XPyS
+import XPyS.models
+from XPyS import bkgrds as background_sub
+from XPyS.helper_functions import *
+from XPyS.gui_element_dicts import *
+import XPyS.autofit.autofit
 
-from xps_peakfit.spectra import spectra
-# import xps_peakfit.auto_fitting
+from XPyS.spectra import spectra
+# import XPyS.auto_fitting
 import os
 import glob
 
@@ -78,12 +78,16 @@ class ParameterWidgetGroup:
             layout = Layout(width = '200px', margin = '0 5px 0 0')
             )
         if self.slider_ctrl is True:
-            
+            # if self.par.expr is None:
+            #     dis = False
+            # else:
+            #     dis = True
             self.ctrl_slider = FloatSlider (
                         value=self.par.value,
                         min = self.sliderlims[0],
                         max = self.sliderlims[1], ### Need to figure out a way to set this
                         step  = 0.01,
+                        # disabled=dis,
                         description = self.par.name,
                         style = {'description_width': 'initial','handle_color' : element_color['_'.join(self.par.name.split('_')[:-1]+[''])]},
                         layout = Layout(width = '350px', margin = '0 0 5ps 0')
@@ -263,7 +267,6 @@ class fitting_panel:
         self.plot_button = Button(description="Plot")   
         self.save_params_button = Button(description="Save Parameters")      
         self.save_fig_button = Button(description="Save Figure") 
-        self.plot_loaded_parameters_button = Button(description="Plot Loaded Parameters") 
         self.autofit_button = Button(description="View Autofit")
 
           
@@ -376,7 +379,7 @@ class fitting_panel:
         save_h2 = HBox([self.save_fig_name,self.save_fig_button])
         v1_save = VBox([save_h1,save_h2])
         
-        h2 = HBox([self.fit_button,self.plot_button,self.plot_loaded_parameters_button,v1_save])
+        h2 = HBox([self.fit_button,self.plot_button,v1_save])
         
         vfinal = VBox([h1, h2, self.plotfit_chkbx, HBox([self.autofit_chkbx,self.autofit_button]), self.use_prev_fit_result_params, self.ref_lines_chkbx, self.plot_with_background_sub, \
                                self.plot_all_chkbx])
@@ -454,16 +457,6 @@ class fitting_panel:
                 show_inline_matplotlib_plots()    
 
                 
-        @self.plot_loaded_parameters_button.on_click
-        def plot_on_click(b):
-            
-            with out:
-                # if hasattr(self,"fig"):
-                clear_output(True)
-
-                self.plot_input_parameters()
-                show_inline_matplotlib_plots()  
-                
         @self.autofit_button.on_click
         def plot_on_click(b):
             with out:
@@ -473,7 +466,7 @@ class fitting_panel:
                     specnum = self.spectra_to_fit_widget.value
                 print(specnum)
                 if not hasattr(self,'autofit'):
-                    self.autofit = xps_peakfit.autofit.autofit.autofit(self.fit_object.esub,self.fit_object.isub[specnum[0]],self.fit_object.orbital)
+                    self.autofit = XPyS.autofit.autofit.autofit(self.fit_object.esub,self.fit_object.isub[specnum[0]],self.fit_object.orbital)
                 elif hasattr(self,'autofit'):
                     self.autofit.guess_params(energy = self.fit_object.esub,intensity = self.fit_object.isub[specnum[0]])
                 for par in self.autofit.guess_pars.keys():
@@ -529,7 +522,7 @@ class fitting_panel:
 
             else:
                 plot_points = dc(list(self.spectra_to_fit_widget.value))    
-        
+        print(plot_points)
         self.fit_object.plot_fitresults(specific_points = plot_points) 
 
     
@@ -542,20 +535,35 @@ class fitting_panel:
 
 class guipyter(spectra):
 
-    def __init__(self,input_object,orbital=None,parameters=None,model=None,pairlist=None,element_ctrl=None,\
-        spectra_name = None, carbon_adjust=None,load_spectra_object = False,load_model = False,autofit = False):
+    def __init__(self,input_object):
+        """Main class for performing interactive fitting of xps signal.
 
+
+        Parameters
+        ----------
+        input_object: XPyS.sample.sample, list, dict
+            The input object can be a few different things
+            1. An sample object
+            2. A list of sample objects. If this is the case then the sample_name attribute wil be used to select the samples
+            3. A dictionary of sample objects where the key is the sample identifier. That sample identifier will be used to 
+            select a given sample
+
+
+        Returns
+        -------
+
+
+        See Also
+        --------
+        :func: plot_all_spectra(), plot_all_sub(), plot_atomic_percent()
+
+        """
         input_object_list = []
-        if type(input_object) is xps_peakfit.sample.sample:
+        if type(input_object) is XPyS.sample.sample:
             self.samples = {}
             self.samples[input_object.sample_name] = input_object
             self.compound = False
 
-        elif str(type(input_object)).split('.')[1] == "CompoundSpectra'>":
-            self.samples = {}
-            self.samples['Not named yet'] = input_object
-            self.compound = True
-            self.params = input_object.params
         elif type(input_object) is list:
             self.samples = {s.sample_name:s for s in input_object}
             self.compound = False
@@ -574,32 +582,64 @@ class guipyter(spectra):
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
 
+        self.select_compound_widget = Dropdown(
+            options = [None] + [cmp for cmp in vars(self.samples[self.select_sample_widget.value]) if \
+                type(self.samples[self.select_sample_widget.value].__dict__[cmp]) is XPyS.compound.CompoundSpectra],
+            description = 'Select Compound',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            indent = False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0')
+            )
+            
         self.select_spectra_widget = Dropdown(
             options = self.samples[self.select_sample_widget.value].element_scans,
             description = 'Select Spectra',
             style = {'description_width': 'initial'},
             disabled=False,
+            indent = False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
 
         self.select_model_widget = Dropdown(
-            options = [None] + xps_peakfit.models.models.model_list(),
+            options = [None] + XPyS.models.model_list(),
             description = 'Select Model',
             style = {'description_width': 'initial'},
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
+
         self.select_sample_model_widget = Dropdown(
             options = [None]+list(self.samples.keys()),
-            description = 'Select Sample',
+            description = 'Select Sample Model',
             style = {'description_width': 'initial'},
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )
 
-        self.select_spectra_button = Button(description="select spectra")
+        self.spectra_to_compound_widget = SelectMultiple(
+            options= self.samples[self.select_sample_widget.value].element_scans, 
+            description='Compound',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            layout = Layout(width = '200px', margin = '0 0 5ps 0'),
+            )
 
-        display(HBox([self.select_sample_widget, self.select_spectra_widget,self.select_model_widget,\
+        self.select_spectra_button = Button(description="select spectra")
+        
+        self.compound_checkbox = Checkbox(
+            value= False,
+            description='Compound',
+            style = {'description_width': 'initial'},
+            disabled=False,
+            indent=False
+            )  
+
+        # self.select_spectra_to_compound_button = Button(description="Build Compound")
+
+        # spectra_manager = VBox([self.select_spectra_widget,self.compound_checkbox])
+
+        display(HBox([self.select_sample_widget, self.select_compound_widget,self.select_spectra_widget,self.select_model_widget,\
             self.select_sample_model_widget, self.select_spectra_button]))
 
         full_panel_out = Output()
@@ -610,25 +650,30 @@ class guipyter(spectra):
 
             with full_panel_out:
                 clear_output(True)
-                # print(self.select_spectra_widget.value)
-                # print(self.select_model_widget.value)
                 self.load_model = self.select_model_widget.value
                 self.load_model_from_sample = self.select_sample_model_widget.value
                 if (self.load_model != None) and (self.load_model_from_sample != None):
                     print('You cant choose to load a model from two places')
                 else:
-                    self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_spectra_widget.value],compound = self.compound)
-                
+                    if self.select_compound_widget.value is None:
+                        self.compound = False
+                        self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_spectra_widget.value],compound = self.compound)
+                    elif not self.select_compound_widget.value is None:
+                        self.compound = True
+                        self.compound_object = self.samples[self.select_sample_widget.value].__dict__[self.select_compound_widget.value]
+                        self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_compound_widget.value].__dict__[self.select_spectra_widget.value],compound = self.compound)                
 
     def create_full_panel(self,spectra_object,compound):
+
         self.spectra_object = spectra_object
+        
         if compound:
-            other_spectra = [s_name for s_name in self.samples[self.select_sample_widget.value].element_scans if not s_name in self.spectra_object.orbital]
-            self.connected_spectra = {s_name:self.samples[self.select_sample_widget.value].__dict__[s_name] for s_name in other_spectra}
+            other_spectra = [s_name for s_name in self.samples[self.select_sample_widget.value].__dict__[self.select_compound_widget.value].element_scans if not s_name in self.spectra_object.orbital]
+            self.connected_spectra = {s_name:self.samples[self.select_sample_widget.value].__dict__[self.select_compound_widget.value].__dict__[s_name] for s_name in other_spectra}
             self.connected_prefixlist = {conn_spec[0]:[comp.prefix for comp in conn_spec[1].mod.components] for conn_spec in self.connected_spectra.items()}
 
         if self.load_model != None:
-            ldd_mod = xps_peakfit.models.models.load_model(self.load_model)
+            ldd_mod = XPyS.models.load_model(self.load_model)
             self.spectra_object.mod = ldd_mod[0]
             self.spectra_object.params = ldd_mod[1]
             self.spectra_object.pairlist = ldd_mod[2]
@@ -640,23 +685,13 @@ class guipyter(spectra):
             self.spectra_object.pairlist = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].pairlist)
             self.spectra_object.element_ctrl = dc(self.samples[self.load_model_from_sample].__dict__[self.select_spectra_widget.value].element_ctrl)
 
-        # elif self.load_model == None:
-        #     self.spectra_object.mod = dc(load_spectra_object.mod)
-        #     self.spectra_object.element_ctrl = dc(load_spectra_object.element_ctrl)
-        #     self.spectra_object.pairlist = dc(load_spectra_object.pairlist)
-        #     self.spectra_object.params = dc(load_spectra_object.params)
-        #     self.spectra_object.fit_results = dc(load_spectra_object.fit_results)
 
         self.E= spectra_object.E
         self.I= spectra_object.I
         self.esub= spectra_object.esub
         self.isub= spectra_object.isub
         self.prefixlist = [comp.prefix for comp in self.spectra_object.mod.components]
-        # spectra_object.mod = self.spectra_object.mod
-        # spectra_object.params = self.spectra_object.params
-        # spectra_object.pairlist = self.spectra_object.pairlist
-        # spectra_object.element_ctrl = self.spectra_object.element_ctrl
-        # self.prefixlist= spectra_object.prefixlist
+
         
         # Make a list of all the relevant parameters. lmfit models can have parameters that depend on other parameters
         # and we are not interested in them. Next, make a list of the prefixes that we want a control bar for. This is a remnant 
@@ -692,9 +727,9 @@ class guipyter(spectra):
                 self.ctrl_lims[par] = (0,1)
         
         if self.compound:
-            parameters = self.samples[self.select_sample_widget.value].params
-            fitobject = self.samples[self.select_sample_widget.value]
-            n_scans = self.samples[self.select_sample_widget.value].n_scans
+            parameters = self.compound_object.params
+            fitobject = self.compound_object
+            n_scans = self.compound_object.n_scans
         elif not self.compound:
             parameters = self.spectra_object.params
             fitobject = self.spectra_object
@@ -766,8 +801,8 @@ class guipyter(spectra):
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
             )        
 
-        wlim = {}
-        wlim[self.spectra_object.orbital] = FloatRangeSlider (
+        self.wlim = {}
+        self.wlim[self.spectra_object.orbital] = FloatRangeSlider (
                 value=[np.min(self.esub), np.max(self.esub)],
                 min = np.min(self.esub),
                 max =np.max(self.esub),
@@ -778,7 +813,7 @@ class guipyter(spectra):
                 )      
         if self.compound:
             for orbital in self.connected_spectra.keys():
-                wlim[orbital] = FloatRangeSlider (
+                self.wlim[orbital] = FloatRangeSlider (
                         value=[np.min(self.connected_spectra[orbital].esub), np.max(self.connected_spectra[orbital].esub)],
                         min = np.min(self.connected_spectra[orbital].esub),
                         max =np.max(self.connected_spectra[orbital].esub),
@@ -788,21 +823,20 @@ class guipyter(spectra):
                         layout = Layout(width = '300px', margin = '0 0 5ps 0')
                         )    
 
-
-
         out = Output()
         display(out)
 
         @self.change_pars_to_fit_button.on_click
         def plot_on_click(b):
             with out:
-                self.spectra_object.params = self.spectra_object.fit_results[self.data_init_widget.value].params.copy()
-                # self.update_parameter_panel(parameters = self.spectra_object.params)
-                for pars in self.paramwidgets.keys():
-                # #     # print(self.spectra_object.fit_results[self.data_init_widget.value].params[pars])
-                    self.paramwidgets[pars].update_widget_group(self.spectra_object.params[pars])
-                #     if self.spectra_object.fit_results[self.data_init_widget.value].params[pars].expr == None:
-                #         self.paramwidgets[pars].value_text.value = dc(self.spectra_object.fit_results[self.data_init_widget.value].params[pars].value)
+                if not self.compound:
+                    self.spectra_object.params = self.spectra_object.fit_results[self.data_init_widget.value].params.copy()
+                    for pars in self.paramwidgets.keys():
+                        self.paramwidgets[pars].update_widget_group(self.spectra_object.params[pars])
+                elif self.compound:
+                    self.compound_object.params = self.compound_object.fit_results[self.data_init_widget.value].params.copy()
+                    for pars in self.paramwidgets.keys():
+                        self.paramwidgets[pars].update_widget_group(self.compound_object.params[pars])     
 
         @self.reset_slider_lims_button.on_click
         def plot_on_click(b):
@@ -812,7 +846,7 @@ class guipyter(spectra):
 
         # Create the interactive plot, then build the slider/graph parameter controls
         plotkwargs = {**{pw.name:pw.ctrl_slider for pw in self.paramwidgets.values() if hasattr(pw,'ctrl_slider')},\
-            **{plotlim.description:plotlim for plotlim in wlim.values()}}
+            **{plotlim.description:plotlim for plotlim in self.wlim.values()}}
         self.intplot = interactive(self.interactive_plot,**plotkwargs)
         
         vb = VBox(self.intplot.children[0:-1])
@@ -831,7 +865,7 @@ class guipyter(spectra):
         if not self.compound:
             combined_comps = [spectra_object.mod.components[int(tempindex[i])].eval(spectra_object.params,x=energy) for i in range(len(tempindex))]
         elif self.compound:
-            combined_comps = [spectra_object.mod.components[int(tempindex[i])].eval(self.params,x=energy) for i in range(len(tempindex))]
+            combined_comps = [spectra_object.mod.components[int(tempindex[i])].eval(self.compound_object.params,x=energy) for i in range(len(tempindex))]
         return [sum(x) for x in zip(*combined_comps)]
         
         
@@ -859,7 +893,7 @@ class guipyter(spectra):
                                             
                                                     
                 
-            ax.set_xlim(np.max(kwargs['xlim']),np.min(kwargs['xlim']))
+            ax.set_xlim(np.max(kwargs[self.spectra_object.orbital+'_xlim']),np.min(kwargs[self.spectra_object.orbital+'_xlim']))
 
             ax.legend(p,fit_legend,bbox_to_anchor=(0.5, 1.05), loc='lower center')
             
@@ -869,7 +903,7 @@ class guipyter(spectra):
             n_plots = len(self.connected_spectra.keys())+1
             fig,ax = plt.subplots(n_plots,1,figsize=(8,n_plots*4))
             p1 = ax[0].plot(self.esub,self.isub[self.data_init_widget.value],'bo')
-            p2 = ax[0].plot(self.esub,self.spectra_object.mod.eval(self.params,x=self.esub) , color = 'black')
+            p2 = ax[0].plot(self.esub,self.spectra_object.mod.eval(self.compound_object.params,x=self.esub) , color = 'black')
 
 
             p = [[] for i in range(len(self.spectra_object.pairlist))]
@@ -885,7 +919,7 @@ class guipyter(spectra):
                 energy = self.connected_spectra[orb[1]].esub
                 spec_obj = self.connected_spectra[orb[1]]
                 ax[orb[0]+1].plot(energy,spec_obj.isub[self.data_init_widget.value],'bo')
-                ax[orb[0]+1].plot(energy,spec_obj.mod.eval(self.params,x=energy) , color = 'black')
+                ax[orb[0]+1].plot(energy,spec_obj.mod.eval(self.compound_object.params,x=energy) , color = 'black')
 
             
                 for pairs in enumerate(spec_obj.pairlist):
@@ -901,32 +935,3 @@ class guipyter(spectra):
             
             plt.show()
 
-### This is in order to use this while using the matplotlib widget backend not developed yet
-#     def plot_widget(self):
-#         self.fig, self.ax = plt.subplots()
-#         self.ax.plot(self.E,self.I[self.data_init_widget.value] label='data')
-#         self.ax.plot(self.E,self.spectra_object.mod.eval(self.spectra_object.params,x=self.E) , color = 'black', label='model')
-#         self.ax.legend()
-#         return self.fig.canvas
-
-#     def update_plot(self):
-#         self.ax.clear()
-#         self.ax.plot(self.x, self.data, label='data')
-
-#         numsteps = 1000
-#         xmod = np.linspace(self.x.min(), self.x.max(), numsteps)
-#         if self.spectra_object.mod is None:
-#             self.ax.plot(xmod, np.zeros_like(xmod), label='model')
-#         else:
-#             try:
-#                 self.ax.plot(xmod, self.fit.eval(params=self.pars, x=xmod), label='model')
-#                 for c, v in self.fit.eval_components(params=self.pars, x=xmod).items():
-#                     plt.plot(xmod, v, '--', label=c)
-#             except AttributeError:
-#                 self.ax.plot(xmod, self.spectra_object.mod.eval(params=self.pars, x=xmod), label='model')
-#                 for c, v in self.spectra_object.mod.eval_components(params=self.pars, x=xmod).items():
-#                     plt.plot(xmod, v, '--', label=c)
-
-#         self.ax.legend()
-#         self.fig.canvas.draw()
-# #         self.fig.canvas.flush_events()
