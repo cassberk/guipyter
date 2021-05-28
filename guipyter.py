@@ -230,14 +230,32 @@ class ParameterWidgetGroup:
 
 
 class fitting_panel:
+    """Class for building the interactive fitting part of the gui"""
 
     def __init__(self, fit_object, n_scans):
+        """Parameters
+        ----------
+        fit_object: spectra object instance, compound object instance
+            either a spectra object or a compound object is passed to the fitting panel. This then controls the fit and plot methods 
+            of those classes.
+        n_scans: int
+            number of intensity scans held by fit object
+
+
+        Returns
+        -------
+
+
+        See Also
+        --------
+        :func:
+        """
+
         self.fit_object = fit_object
        
-    # def interactive_fit(self):
  
 
-        """Fitting functions supported by lmfit"""
+        #Fitting functions supported by lmfit
         fitting_options = [('Levenberg-Marquardt', 'leastsq'),\
         ('Least-Squares minimization Trust Region Reflective method ',' least_squares'),\
         ('differential evolution','differential_evolution'),\
@@ -263,12 +281,11 @@ class fitting_panel:
         ('Dual Annealing optimization','dual_annealing')]
 
 
+        #Define Widgets
         self.fit_button = Button(description="Fit")
         self.plot_button = Button(description="Plot")   
         self.save_fig_button = Button(description="Save Figure") 
         self.autofit_button = Button(description="View Autofit")
-
-          
         
         self.fit_method_widget = Dropdown(
             options = fitting_options,
@@ -280,7 +297,6 @@ class fitting_panel:
             )
           
         self.BE_adjust_ref_widget = FloatText(
-#             value=adjust_reference,
             description = 'BE Peak Ref.',
             style = {'description_width': 'initial'},
             disabled=False,
@@ -288,7 +304,6 @@ class fitting_panel:
             )
             
         self.spectra_to_fit_widget = SelectMultiple(
-            # options=[None, 'All'] + list(np.arange(0,len(self.spectra_object.data['isub']))), # Get rid ofthis once data dict is no longer used
             options=[None, 'All'] + list(np.arange(0,n_scans)), # Get rid ofthis once data dict is no longer used
             value = ('All',),
             description='Spectra to fit',
@@ -352,17 +367,9 @@ class fitting_panel:
             indent=False
             )      
 
-        self.select_parameters_widget = Dropdown(
-            # options = [None] + list(np.arange(0,len(self.spectra_object.data['isub']))), # Get rid ofthis once data dict is no longer used
-            options = [None] + list(np.arange(0,n_scans)), # Get rid ofthis once data dict is no longer used
-            description = 'Select Fit Parameters',
-            style = {'description_width': 'initial'},
-            disabled=False,
-            layout = Layout(width = '400px', margin = '0 0 5ps 0')
-            )
 
         ### Build the Fitting Panel
-        v1 = VBox([self.select_parameters_widget,self.BE_adjust_ref_widget,self.fit_method_widget])
+        v1 = VBox([self.BE_adjust_ref_widget,self.fit_method_widget])
         h1 = HBox([v1,self.spectra_to_fit_widget]) 
         
         fig_save = HBox([self.save_fig_name,self.save_fig_button])
@@ -378,8 +385,7 @@ class fitting_panel:
         display(out)
 
 
-            
-            
+        #Define button functions
         @self.save_fig_button.on_click
         def save_fig_on_click(b):
             with out:
@@ -396,15 +402,9 @@ class fitting_panel:
 
                 self.fig.savefig(save_location, bbox_inches='tight')
 
-
-
-        
         @self.fit_button.on_click
         def fit_on_click(b):
-            
             self.BE_adjust = 0  #change this once the new xps package is ready
-            
-            
             with out:
                 # if hasattr(self,"fig"):
                 clear_output(True)
@@ -416,9 +416,7 @@ class fitting_panel:
         
         @self.plot_button.on_click
         def plot_on_click(b):
-            
             with out:
-                # if hasattr(self,"fig"):
                 clear_output(True)
 
                 self.plot_spectra()
@@ -445,15 +443,20 @@ class fitting_panel:
 
     # Fitting Panel Methods            
     def fit_spectra(self):
+        """Function called when self.fit_button is clicked. This will call the fit method on the spectra object instance provided certain
+        conditionals are met.
+
+
+        See Also
+        --------
+
+        :func:spectra.fit
+        """
+
         ### Fitting Conditionals
         if self.fit_method_widget.value ==None:
             print('Enter a fitting Method',flush =True)
-            return
-        
-        if (self.select_parameters_widget.value != None) & (not hasattr(self,'fit_results')):
-            print('No Previous Fits!',flush =True)
-            return
-        
+            return     
         
         if 'All' in self.spectra_to_fit_widget.value:
             print('%%%% Fitting all spectra... %%%%',flush =True)          
@@ -467,12 +470,22 @@ class fitting_panel:
             fit_points = list(self.spectra_to_fit_widget.value)
             print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
+        #Call fit on fit object
         self.fit_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
             autofit = self.autofit_chkbx.value)
         self.plot_spectra()
 
 
     def plot_spectra(self):
+        """Function called when self.plot_button is clicked. This will call the plot_fitresults() method on the spectra object instance provided certain
+        conditionals are met.
+
+
+        See Also
+        --------
+
+        :func:spectra.plot_fitresults()
+        """
         ### Plotting Conditionals
         if self.plot_all_chkbx.value is True:
             print('Plotting all spectra ...')
@@ -489,7 +502,8 @@ class fitting_panel:
                 plot_points = [j for j,x in enumerate(self.fit_object.fit_results) if x]
 
             else:
-                plot_points = dc(list(self.spectra_to_fit_widget.value))    
+                plot_points = dc(list(self.spectra_to_fit_widget.value))  
+                 
         print(plot_points)
         self.fit_object.plot_fitresults(specific_points = plot_points) 
 
@@ -502,14 +516,12 @@ class fitting_panel:
 
 
 class guipyter(spectra):
+    """Main class for performing interactive fitting of xps signal."""
 
     def __init__(self,input_object):
-        """Main class for performing interactive fitting of xps signal.
-
-
-        Parameters
+        """Parameters
         ----------
-        input_object: XPyS.sample.sample, list, dict
+        input_object: XPyS.sample.sample instance, list, dict
             The input object can be a few different things
             1. An sample object
             2. A list of sample objects. If this is the case then the sample_name attribute wil be used to select the samples
@@ -526,6 +538,7 @@ class guipyter(spectra):
         :func:
 
         """
+
         input_object_list = []
         if type(input_object) is XPyS.sample.sample:
             self.samples = {}
@@ -539,7 +552,6 @@ class guipyter(spectra):
         elif type(input_object) is dict:
             self.samples = input_object
             self.compound = False
-
 
 
         self.select_sample_widget = Dropdown(
@@ -632,6 +644,30 @@ class guipyter(spectra):
                         self.create_full_panel(spectra_object = self.samples[self.select_sample_widget.value].__dict__[self.select_compound_widget.value].__dict__[self.select_spectra_widget.value],compound = self.compound)                
 
     def create_full_panel(self,spectra_object,compound):
+        """Function to build the full interactive fitting gui. This will call functions to make the parameter widgets, the 
+        interactive plot, and the panel for controlling the fit
+
+
+        Parameters
+        ----------
+        spectra_object: XPyS.spectra.spectra instance
+            When self.select_spectra_button() is called by "select spectra" button on the panel. A spectra object instance held by the
+            selected sample will be passed.  All of the adjustable parameters will be built based of the model used to fit the spectra
+            instance. If a compound is selected then the parameters of the spectra object will be the adjustable ones. However, the 
+            interactive plot will show all of the spectra that make up the compound
+        compound: bool
+            If a compound is being fit then true will be passed.
+
+
+        Returns
+        -------
+
+
+        See Also
+        --------
+        :func:  self.make_parameter_panel(), self.make_interactive_plot(), self.fitting_panel
+
+        """
 
         self.spectra_object = spectra_object
         
@@ -709,6 +745,26 @@ class guipyter(spectra):
     
 
     def make_parameter_panel(self,parameters = None):
+        """Function to build the parameter panel for interactively controling which parameters are varied as well as parameter ranges
+        and parameter expressions (making one parameter depend on another). A ParameterWidgetGroup instance will be created for each
+        parameter and stored in the paramwidgets dictionary.
+
+
+        Parameters
+        ----------
+        parameters: lmfit parameters object instance
+
+
+        Returns
+        -------
+
+
+        See Also
+        --------
+        :class:  ParameterWidgetGroup
+
+        """
+
         if parameters == None:
             print('No parameters specified')
             return
@@ -739,7 +795,27 @@ class guipyter(spectra):
 
 
     def make_interactive_plot(self):
+        """Function to build the plotting part GUI. This is made up of the matplotlib figure to view modifications to the parameters.
+        It is also made up of the sliders held by the ParameterWidgetGroup for the element_ctrl parameters. It also has the widget to
+        change which intensity dataset is being fit. As well as the widgets to reset the sliders if a limit of the range is reached.
+        As well as widgets to change the parameters to fit_result parameters.
 
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+
+
+        See Also
+        --------
+        :class:  ParameterWidgetGroup
+        :func: interactive_plot()
+
+
+        """
         self.change_pars_to_fit_button = Button(
             description="Change Parameters to Fit Result",
             layout = Layout(width = '300px', margin = '0 0 5ps 0')
@@ -761,7 +837,6 @@ class guipyter(spectra):
 
         self.reset_slider_widget =  Dropdown(
             options= [par for par in self.ctrl_pars.keys() if self.ctrl_pars[par]],  
-            # options=list(np.arange(0,len(self.isub))),     
             value = None,
             description='Slider Reset',
             style = {'description_width': 'initial'},
