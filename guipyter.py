@@ -555,7 +555,7 @@ class guipyter(spectra):
 
         See Also
         --------
-        :func: plot_all_spectra(), plot_all_sub(), plot_atomic_percent()
+        :func:
 
         """
         input_object_list = []
