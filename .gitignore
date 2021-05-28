@@ -146,3 +146,5 @@ dmypy.json
 
 .DS_Store
 __pycache__/
+
+TODO.txt
