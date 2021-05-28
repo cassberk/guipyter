@@ -265,7 +265,6 @@ class fitting_panel:
 
         self.fit_button = Button(description="Fit")
         self.plot_button = Button(description="Plot")   
-        self.save_params_button = Button(description="Save Parameters")      
         self.save_fig_button = Button(description="Save Figure") 
         self.autofit_button = Button(description="View Autofit")
 
@@ -328,15 +327,6 @@ class fitting_panel:
             disabled=False,
             indent=False
             )
-
-        
-        self.save_params_name = Text(
-            # value=self.spectra_object.spectra_name+'_fitparams',
-            description = 'Save parameter name',
-            style = {'description_width': 'initial'},
-            disabled=False,
-            layout = Layout(width = '400px', margin = '0 0 5ps 0')
-            )
  
         self.save_fig_name = Text(
             # value=self.spectra_object.spectra_name,
@@ -375,11 +365,9 @@ class fitting_panel:
         v1 = VBox([self.select_parameters_widget,self.BE_adjust_ref_widget,self.fit_method_widget])
         h1 = HBox([v1,self.spectra_to_fit_widget]) 
         
-        save_h1 = HBox([self.save_params_name,self.save_params_button])
-        save_h2 = HBox([self.save_fig_name,self.save_fig_button])
-        v1_save = VBox([save_h1,save_h2])
+        fig_save = HBox([self.save_fig_name,self.save_fig_button])
         
-        h2 = HBox([self.fit_button,self.plot_button,v1_save])
+        h2 = HBox([self.fit_button,self.plot_button,fig_save])
         
         vfinal = VBox([h1, h2, self.plotfit_chkbx, HBox([self.autofit_chkbx,self.autofit_button]), self.use_prev_fit_result_params, self.ref_lines_chkbx, self.plot_with_background_sub, \
                                self.plot_all_chkbx])
@@ -389,26 +377,6 @@ class fitting_panel:
         out = Output()
         display(out)
 
-
-        # Button Actions
-        @self.save_params_button.on_click
-        def save_params_on_click(b):
-            with out:
-                if not hasattr(self,'fit_results'):
-                    print('There are no fit result objects!')
-                    return
-
-                if not os.path.exists(os.path.join(os.getcwd(),'fit_parameters')):
-                    os.makedirs(os.path.join(os.getcwd(),'fit_parameters'))
-
-                # fit_params_list = [self.fit_results[i].params for i in self.fit_results_idx]
-                fit_params_list = [j for j,x in enumerate(self.fit_object.fit_results) if x]
-                # print(os.getcwd())
-                save_location = os.path.join(os.getcwd(),'fit_parameters',self.save_params_name.value +'.pkl')
-                f = open(save_location,"wb")
-
-                pickle.dump(fit_params_list,f)
-                f.close()
 
             
             
