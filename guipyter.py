@@ -486,6 +486,7 @@ class fitting_panel:
 
         :func:spectra.plot_fitresults()
         """
+
         ### Plotting Conditionals
         if self.plot_all_chkbx.value is True:
             print('Plotting all spectra ...')
@@ -503,15 +504,11 @@ class fitting_panel:
 
             else:
                 plot_points = dc(list(self.spectra_to_fit_widget.value))  
-                 
+
         print(plot_points)
         self.fit_object.plot_fitresults(specific_points = plot_points) 
 
     
-
-
-
-
 
 
 
@@ -829,7 +826,7 @@ class guipyter(spectra):
         self.data_init_widget =  Dropdown(
             options=list(np.arange(0,len(self.isub))),      
             value = 0,
-            description='Data to initialize',
+            description='Dataset',
             style = {'description_width': 'initial'},
             disabled=False,
             layout = Layout(width = '200px', margin = '0 0 5ps 0')
