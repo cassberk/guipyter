@@ -178,9 +178,6 @@ class ParameterWidgetGroup:
             self.expr_text.value = self.par.expr
         elif self.par.expr == None:
             self.value_text.value = self.par.value
-
-
-        # print(self.expr_text.value)
         
 
     # Make it easy to set the widget attributes directly.
@@ -344,7 +341,6 @@ class fitting_panel:
             )
  
         self.save_fig_name = Text(
-            # value=self.spectra_object.spectra_name,
             description = 'Save figure name',
             style = {'description_width': 'initial'},
             disabled=False,
@@ -470,7 +466,6 @@ class fitting_panel:
             fit_points = list(self.spectra_to_fit_widget.value)
             print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
-        #Call fit on fit object
         self.fit_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
             autofit = self.autofit_chkbx.value)
         self.plot_spectra()
@@ -612,9 +607,6 @@ class interactive_fit(spectra):
             indent=False
             )  
 
-        # self.select_spectra_to_compound_button = Button(description="Build Compound")
-
-        # spectra_manager = VBox([self.select_spectra_widget,self.compound_checkbox])
 
         display(HBox([self.select_sample_widget, self.select_compound_widget,self.select_spectra_widget,self.select_model_widget,\
             self.select_sample_model_widget, self.select_spectra_button]))
