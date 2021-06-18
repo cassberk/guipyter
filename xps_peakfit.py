@@ -500,8 +500,7 @@ class fitting_panel:
             else:
                 plot_points = dc(list(self.spectra_to_fit_widget.value))  
 
-        print(plot_points)
-        self.fit_object.plot_fitresults(specific_points = plot_points) 
+        self.fig, self.axs = self.fit_object.plot_fitresults(specific_points = plot_points) 
 
     
 
