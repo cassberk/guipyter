@@ -24,12 +24,13 @@ import XPyS.models
 from XPyS import bkgrds as background_sub
 from XPyS.helper_functions import *
 from XPyS.gui_element_dicts import *
-import XPyS.autofit.autofit
+# import XPyS.autofit.autofit
 
 from XPyS.spectra import spectra
 # import XPyS.auto_fitting
 import os
 import glob
+import importlib
 
 
 
@@ -422,19 +423,15 @@ class fitting_panel:
         @self.autofit_button.on_click
         def plot_on_click(b):
             with out:
-                if self.spectra_to_fit_widget.value == 'All':
-                    specnum = 0
+                if self.spectra_to_fit_widget.value == ('All',):
+                    specnum = [0]
                 else:
                     specnum = self.spectra_to_fit_widget.value
-                print(specnum)
-                if not hasattr(self,'autofit'):
-                    self.autofit = XPyS.autofit.autofit.autofit(self.fit_object.esub,self.fit_object.isub[specnum[0]],self.fit_object.orbital)
-                elif hasattr(self,'autofit'):
-                    self.autofit.guess_params(energy = self.fit_object.esub,intensity = self.fit_object.isub[specnum[0]])
-                for par in self.autofit.guess_pars.keys():
-                    self.fit_object.params[par].value = self.autofit.guess_pars[par]
 
+                if not hasattr(self.fit_object,'autofit'):
+                    self.fit_object.get_autofit_model()
 
+                self.fit_object.update_autofit_params(self.fit_object.esub,self.fit_object.isub[specnum[0]])
 
 
     # Fitting Panel Methods            
@@ -466,7 +463,7 @@ class fitting_panel:
             fit_points = list(self.spectra_to_fit_widget.value)
             print('%%%% Fitting spectra ' + str(fit_points)+'... %%%%',flush =True) 
 
-        self.fit_object.fit(specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
+        self.fit_object.fit(fit_method = self.fit_method_widget.value,specific_points = fit_points,plotflag = False, track = False, update_with_prev_pars = self.use_prev_fit_result_params.value,\
             autofit = self.autofit_chkbx.value)
         self.plot_spectra()
 
