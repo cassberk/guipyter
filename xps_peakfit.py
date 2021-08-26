@@ -23,11 +23,9 @@ import XPyS
 import XPyS.models
 from XPyS import bkgrds as background_sub
 from XPyS.helper_functions import *
-from XPyS.gui_element_dicts import *
-# import XPyS.autofit.autofit
+import XPyS.config as cfg
 
 from XPyS.spectra import spectra
-# import XPyS.auto_fitting
 import os
 import glob
 import importlib
@@ -90,7 +88,7 @@ class ParameterWidgetGroup:
                         step  = 0.01,
                         # disabled=dis,
                         description = self.par.name,
-                        style = {'description_width': 'initial','handle_color' : element_color['_'.join(self.par.name.split('_')[:-1]+[''])]},
+                        style = {'description_width': 'initial','handle_color' : cfg.element_color['_'.join(self.par.name.split('_')[:-1]+[''])]},
                         layout = Layout(width = '350px', margin = '0 0 5ps 0')
                         )
 
@@ -909,15 +907,15 @@ class interactive_fit(spectra):
             p2 = ax.plot(self.esub,self.spectra_object.mod.eval(self.spectra_object.params,x=self.esub) , color = 'black')
         
             p = [[] for i in range(len(self.spectra_object.pairlist))]
-            fit_legend = [element_text[element[0]] for element in self.spectra_object.pairlist]
+            fit_legend = [cfg.element_text[element[0]] for element in self.spectra_object.pairlist]
             
             for pairs in enumerate(self.spectra_object.pairlist):
 
                 p[pairs[0]] = ax.fill_between(self.esub,self.combine_components(pairs[1],self.spectra_object,self.prefixlist,energy = self.esub),\
-                                            color = element_color[pairs[1][0]],alpha = 0.3)
+                                            color = cfg.element_color[pairs[1][0]],alpha = 0.3)
 
                 # p[pairs[0]] = plt.fill_between(self.E,sum([self.spectra_object.mod.eval_components(x=self.E)[comp] for comp in pairs[1]]),\
-                #                                color = element_color[pairs[1][0]],alpha = 0.3)
+                #                                color = cfg.element_color[pairs[1][0]],alpha = 0.3)
                                             
                                                     
                 
@@ -935,10 +933,10 @@ class interactive_fit(spectra):
 
 
             p = [[] for i in range(len(self.spectra_object.pairlist))]
-            fit_legend = [element_text[element[0]] for element in self.spectra_object.pairlist]
+            fit_legend = [cfg.element_text[element[0]] for element in self.spectra_object.pairlist]
             for pairs in enumerate(self.spectra_object.pairlist):
                 p[pairs[0]] = ax[0].fill_between(self.esub,self.combine_components(pairs[1],self.spectra_object,self.prefixlist,energy = self.esub),\
-                                            color = element_color[pairs[1][0]],alpha = 0.3)
+                                            color = cfg.element_color[pairs[1][0]],alpha = 0.3)
 
             ax[0].set_xlim(np.max(kwargs[self.spectra_object.orbital+'_xlim']),np.min(kwargs[self.spectra_object.orbital+'_xlim']))
 
@@ -953,7 +951,7 @@ class interactive_fit(spectra):
                 for pairs in enumerate(spec_obj.pairlist):
 
                     ax[orb[0]+1].fill_between(energy,self.combine_components(pairs[1],spec_obj,self.connected_prefixlist[orb[1]],energy = energy),\
-                                                color = element_color[pairs[1][0]],alpha = 0.3)
+                                                color = cfg.element_color[pairs[1][0]],alpha = 0.3)
                                   
                                                     
                 ax[orb[0]+1].set_xlim(np.max(kwargs[spec_obj.orbital+'_xlim']),np.min(kwargs[spec_obj.orbital+'_xlim']))
