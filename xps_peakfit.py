@@ -429,7 +429,7 @@ class fitting_panel:
                 if not hasattr(self.fit_object,'autofit'):
                     self.fit_object.get_autofit_model()
 
-                self.fit_object.update_autofit_params(self.fit_object.esub,self.fit_object.isub[specnum[0]])
+                self.fit_object.update_autofit_params(idx = specnum[0])
 
 
     # Fitting Panel Methods            
